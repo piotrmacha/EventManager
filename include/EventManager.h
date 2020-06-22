@@ -8,24 +8,27 @@
 
 namespace Fay
 {
-    /**
-     * Base virtual class for observers to allow dynamic cast.
-     * Should not be inherited directly by client observer.
-     */
-    struct IBaseObserver
+    namespace detail
     {
-        virtual ~IBaseObserver() {};
-    };
+        /**
+         * Base virtual class for observers to allow dynamic cast.
+         * Should not be inherited directly by client observer.
+         */
+        struct IBaseObserver
+        {
+            virtual ~IBaseObserver() {};
+        };
 
-    /**
-     * Interface for single Observer implementation.
-     * Should not be inherited directly by client. Use Observer<...Args> instead.
-     */
-    template <typename T>
-    struct IObserver
-    {
-        virtual void OnEvent(const T& event) = 0;
-    };
+        /**
+         * Interface for single Observer implementation.
+         * Should not be inherited directly by client. Use Observer<...Args> instead.
+         */
+        template <typename T>
+        struct IObserver
+        {
+            virtual void OnEvent(const T& event) = 0;
+        };
+    }
 
     /**
      * Interface to be inherited by client observers. It sets up BaseObserver and multiple IObservers.
@@ -34,7 +37,7 @@ namespace Fay
      *  class MyObserver : public Fay::Observer<Event1, Event2, Event3> {}
      */
     template <typename... Args>
-    struct Observer : public IBaseObserver, public IObserver<Args>...
+    struct Observer : public detail::IBaseObserver, public detail::IObserver<Args>...
     {
     };
 
@@ -43,14 +46,16 @@ namespace Fay
      *  Container: std::vector compatibile storage for Observers
      *  Mutex: std::mutex compatibile mutex
      */
-    template <typename Container = std::vector<IBaseObserver*>, typename Mutex = std::mutex>
+    template <typename Container = std::vector<detail::IBaseObserver*>, typename Mutex = std::mutex>
     class BaseEventManager
     {
     public:
+        using BaseObserverPtrType = detail::IBaseObserver*;
+
         /**
          * Registers the Observer in EventManager
          */
-        void Subscribe(IBaseObserver* observer)
+        void Subscribe(BaseObserverPtrType observer)
         {
             std::lock_guard<Mutex> lock(mObserversMutex);
             mObservers.push_back(observer);
@@ -59,7 +64,7 @@ namespace Fay
         /**
          * Unregisters the Observer
          */
-        void Unsubscribe(IBaseObserver* observer)
+        void Unsubscribe(BaseObserverPtrType observer)
         {
             std::lock_guard<Mutex> lock(mObserversMutex);
             for (auto it = mObservers.begin(); it != mObservers.end(); ++it)
@@ -81,7 +86,7 @@ namespace Fay
             std::lock_guard<Mutex> lock(mObserversMutex);
             for (auto* ptr : mObservers)
             {
-                IObserver<T>* observer = dynamic_cast<IObserver<T>*>(ptr);
+                detail::IObserver<T>* observer = dynamic_cast<detail::IObserver<T>*>(ptr);
                 // If observer is null it means that it can't process T
                 if (observer)
                 {
@@ -116,6 +121,6 @@ namespace Fay
     /**
      * Alias for ST EventManager using NullMutex
      */
-    template <typename Container = std::vector<IBaseObserver*>>
+    template <typename Container = std::vector<BaseEventManager<>::BaseObserverPtrType>>
     using SingleThreadedBaseEventManager = BaseEventManager<Container, NullMutex>;
 }
