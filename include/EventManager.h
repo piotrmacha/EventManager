@@ -52,6 +52,9 @@ namespace Fay
     public:
         using BaseObserverPtrType = detail::IBaseObserver*;
 
+        BaseEventManager() : mObservers(Container()) {}
+        BaseEventManager(Container container) : mObservers(std::move(container)) {}
+
         /**
          * Registers the Observer in EventManager
          */
